@@ -1,0 +1,31 @@
+<div class="widget average-build-duration"  style="width:400px" >
+    <div class="widget-heading">
+        Average Test Run Duration
+    </div>
+    <div class="widget-body">
+        <chartist class="ct-chart ct-major-twelfth"
+                  chartist-chart-type="Bar"
+                  chartist-data="buildView.buildDurationData"
+                  chartist-chart-options="buildView.buildDurationOptions"
+                  chartist-events="buildView.buildDurationEvents"
+                ></chartist>
+                
+               
+    </div>
+    
+    <!--  {{buildView.tempdataresults}} -->
+    <!-- {{buildView.testtotal}} -->
+  <div ng-repeat="data in buildView.newData">
+    <div ng-repeat='item in data.HelloDora.result '>
+ <!--    {{item.buildUrl.split("/")[4].replace("%20"," ")}}
+{{item.buildStatus}} -->
+
+</div>
+</div>
+this new response array
+{{buildView.dfg}}
+
+</div>
+
+
+

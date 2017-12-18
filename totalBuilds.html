@@ -1,0 +1,68 @@
+<div class="widget" style="width:400px;">
+    <div class="widget-heading">
+        Total Runs
+    </div>
+    <div class="widget-body" fit-text=".build-summary-count > span" fit-text-max="40">
+        <div class="row">
+            <div class="col-xs-4">
+                <div class="build-summary-count">
+                    <span>{{buildView.totalBuildsYesterday}}</span>
+                </div>
+                <div class="build-summary-type">Today</div>
+            </div>
+            <div class="col-xs-4">
+                <div class="build-summary-count">
+                    <span>{{buildView.totalBuildsLastWeek}}</span>
+                </div>
+                <div class="build-summary-type">Last<br/>7 Days</div>
+            </div>
+            <div class="col-xs-4">
+                <div class="build-summary-count">
+                    <span>{{buildView.totalBuildsLastMonth}}</span>
+                </div>
+                <div class="build-summary-type">Last<br/>14 Days</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="height:50px"></div>
+<div class="widget" style="width:400px;"">
+    <div class="widget-heading">
+       Application Health Indicator
+    </div>
+    
+   <!--  <table>
+    <tr ng-repeat="hh in buildView.jjj ">
+    <td>
+    {{hh.buildStatus}}
+    </td>
+    </tr>
+    </table> -->
+    <div class="widget-body" fit-text=".build-summary-count > span" fit-text-max="40">
+        <div class="row">
+            <div class="col-xs-4">
+                <div class="build-summary-count" style="font-size: 12px">
+                     Passed : {{buildView.kkk[0] | number : 2}} %<br/>
+                    Failed : {{buildView.kkk[1] | number : 2}} %
+                </div>
+                <div class="build-summary-type">Today</div>
+            </div>
+            <div class="col-xs-4">
+                <div class="build-summary-count" style="font-size: 12px">
+                     Passed : {{buildView.hhh[0] | number : 2}} %<br/>
+                     Failed : {{buildView.hhh[1] | number : 2}} %
+                </div>
+                <div class="build-summary-type">Last<br/>7 Days</div>
+            </div>
+            <div class="col-xs-4">
+                <div class="build-summary-count" style="font-size: 12px">
+                
+                   Passed : {{buildView.jjj[0] | number : 2}} %<br/>
+                     Failed : {{buildView.jjj[1] | number : 2}} %
+                </div>
+                <div class="build-summary-type">Last<br/>14 Days</div>
+            </div>
+        </div>
+    </div>
+</div>
