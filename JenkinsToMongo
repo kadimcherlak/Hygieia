@@ -1,0 +1,187 @@
+package writemongodb;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoException;
+
+
+public class InsertDocumentApp {
+	static String JobName;
+	static String ApplicationName;
+	static String TowerName;
+	static String FinalResult;
+	static String FinalTimestamp;
+	static String FinalDuration;
+	static String BuildName;
+	
+	public static void main(String[] args) throws IOException {
+	try {
+
+		/**** Connect to MongoDB ****/
+		// Since 2.10.0, uses MongoClient
+		MongoClient mongo = new MongoClient("localhost", 27017);
+
+		/**** Get database ****/
+		// if database doesn't exists, MongoDB will create it for you
+		DB db = mongo.getDB("dashboarddb");
+
+		/**** Get collection / table from 'testdb' ****/
+		// if collection doesn't exists, MongoDB will create it for you
+		DBCollection table = db.getCollection("user123");
+		
+		URL oracle = new URL("http://paz1webpw4v:8081/api/json"); // URL to Parse
+		URLConnection yc = oracle.openConnection();
+	//	BufferedReader in = new BufferedReader(new InputStreamReader(yc.getInputStream())); 
+		
+		 BufferedReader in = GetDataFromJenkins("http://paz1webpw4v:8081/api/json");              
+         String inputLine;
+         inputLine=in.readLine();
+         String[] x=inputLine.split("name");
+         List<String> TowerData = new ArrayList<String>();
+         for(int u=1;u<x.length-4;u++){
+        	 
+           String f=x[u].split(",")[0].substring(3);
+            TowerName=f.substring(0, f.length() - 1);
+           
+                  System.out.println("Tower Name :"+TowerName);    
+                  BufferedReader in1 = GetDataFromJenkins("http://paz1webpw4v:8081/job/"+TowerName.replace(" ", "%20")+"/api/json");                
+                String Newstring =in1.readLine();
+              
+                String[] appZ=Newstring.split("url");                         
+                
+                for(int e=2;e<appZ.length-2;e++){
+                   if(!appZ[e].contains("Regression") && !appZ[e].contains("WorkingFolder_DND"))
+                           {
+                         
+                  ApplicationName=appZ[e].split(",")[0].split("/")[6];
+                 
+                  System.out.println("Application Name :"+ApplicationName);     
+                  BufferedReader in2 = GetDataFromJenkins("http://paz1webpw4v:8081/job/"+TowerName.replace(" ", "%20")+"/job/"+ApplicationName+"/api/json");                  
+                       String JobJSON =in2.readLine();
+                      String[] JobZ=JobJSON.split("url");  
+                     for(int m=2;m<JobZ.length-2;m++){
+                          
+                          JobName=JobZ[m].split("/")[8];
+                       
+                         System.out.println("Job Name :"+JobName); 
+                         BufferedReader in3 = GetDataFromJenkins("http://paz1webpw4v:8081/job/"+TowerName.replace(" ", "%20")+"/job/"+ApplicationName+"/job/"+JobName+"/api/json");                
+                         String BuulsJSON =in3.readLine();
+                       
+                        String[] BuildsZ=BuulsJSON.split("url");
+                       for(int g=2;g<BuildsZ.length-2;g++){
+                    	   BasicDBObject document_u = new BasicDBObject();  
+                                   String TmepBuildName=BuildsZ[g].replace("}]", "},").split("},")[0].substring(3);
+                                   BuildName=TmepBuildName.substring(0, TmepBuildName.length() - 1);
+                                  
+                                  System.out.println("Build Name :"+BuildName);
+                                  BufferedReader in4 = GetDataFromJenkins(BuildName+"api/json");             
+                                String BuildInternalJSON =in4.readLine();
+                                  
+                               String BuildInternalZ_Result=BuildInternalJSON.split("result")[1].split("timestamp")[0].substring(3);
+                               FinalResult=BuildInternalZ_Result.substring(0, BuildInternalZ_Result.length() - 3);
+                               String TempResult=BuildInternalJSON.split("result")[1].split("timestamp")[1];
+                               
+                              String BuildInternalZ_Timestamp=TempResult.split("url")[0].substring(2);
+                               FinalTimestamp=BuildInternalZ_Timestamp.substring(0, BuildInternalZ_Timestamp.length() - 2);
+                              
+                             String BuildInternalZ_Duration=BuildInternalJSON.split("duration")[1].split("estimatedDuration")[0].substring(2);
+                             FinalDuration= BuildInternalZ_Duration.substring(0, BuildInternalZ_Duration.length() - 2);
+                             
+                            String BuildInternalZ_Log=BuildInternalJSON.split("duration")[1];
+                            
+                           BufferedReader in5 = GetDataFromJenkins(BuildName+"/consoleText");       
+                          String BuildInternalJSON_Log =in5.readLine();
+                          System.out.println("Test Result : "+ FinalResult+" -- Time Stamp: "+FinalTimestamp+" -- Duration : "+FinalDuration);
+                          System.out.println("Log: "+BuildInternalJSON_Log);
+                          document_u.put("TowerName",TowerName );
+                          document_u.put("ApplicationName", ApplicationName);
+                          document_u.put("JobName", JobName);
+                          document_u.put("BuildName", BuildName);
+                          document_u.put("Result", FinalResult);
+                          document_u.put("startTime", FinalTimestamp);
+                          document_u.put("Duration", FinalDuration);
+                      
+                          table.insert(document_u);
+                       
+                       }
+                       
+        }
+                           }
+                }
+               
+               
+         }
+     	in.close();
+		/**** Insert ****/
+		// create a document to store key and value
+		
+		/*document.put("name", "koushik");
+		document.put("gender", "male");
+		document.put("createdDate", new Date());*/
+    
+	
+	
+		/**** Find and display ****/
+		BasicDBObject searchQuery = new BasicDBObject();
+		searchQuery.put("_class", "hudson.model.FreeStyleProject");
+
+		DBCursor cursor = table.find(searchQuery);
+
+		while (cursor.hasNext()) {
+			System.out.println(cursor.next());
+		}
+
+		/**** Update ****/
+		// search document where name="mkyong" and update it with new values
+		/*BasicDBObject query = new BasicDBObject();
+		query.put("name", "koushik");
+
+		BasicDBObject newDocument = new BasicDBObject();
+		newDocument.put("name", "koushik-updated");
+
+		BasicDBObject updateObj = new BasicDBObject();
+		updateObj.put("$set", newDocument);
+
+		table.update(query, updateObj);
+*/
+		/**** Find and display ****/
+		/*BasicDBObject searchQuery2
+		    = new BasicDBObject().append("name", "koushik-updated");
+
+		DBCursor cursor2 = table.find(searchQuery2);
+
+		while (cursor2.hasNext()) {
+			System.out.println(cursor2.next());
+		}*/
+
+		/**** Done ****/
+		System.out.println("Done");
+
+	    }
+               catch (MongoException e1) {
+		e1.printStackTrace();
+	    }
+
+	  }
+                private static BufferedReader GetDataFromJenkins(String myUrl)
+                        throws MalformedURLException, IOException {
+                 URL oracle = new URL(myUrl); // URL to Parse
+                 URLConnection yc = oracle.openConnection();
+                 BufferedReader in = new BufferedReader(new InputStreamReader(yc.getInputStream()));
+                 return in;
+          }  
+}
