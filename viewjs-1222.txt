@@ -1,0 +1,1740 @@
+/**
+
+* View controller for the build widget
+
+*/
+
+(function () {
+
+    'use strict';
+
+ 
+
+    angular
+
+        .module(HygieiaConfig.module)
+
+        .controller('BuildWidgetViewController', BuildWidgetViewController);
+
+ 
+
+    BuildWidgetViewController.$inject = ['$scope', 'buildData','collectorData','DisplayState','$q','$uibModal','$http'];
+
+    function BuildWidgetViewController($scope, buildData,collectorData,DisplayState,$q,$uibModal,$http) {
+
+        var ctrl = this;
+
+        var builds = [];
+
+ 
+
+        //region Chart Configuration
+
+        // line chart config
+
+ 
+
+        ctrl.lineOptions = {
+
+            plugins: [
+
+                Chartist.plugins.gridBoundaries(),
+
+                Chartist.plugins.lineAboveArea(),
+
+                Chartist.plugins.tooltip(),
+
+                Chartist.plugins.pointHalo()
+
+            ],
+
+            showArea: true,
+
+            lineSmooth: false,
+
+            fullWidth: true,
+
+            chartPadding: 7,
+
+            axisX: {
+
+                showLabel: false
+
+            },
+
+            axisY: {
+
+                labelInterpolationFnc: function(value) {
+
+                    return value === 0 ? 0 : ((Math.round(value * 100) / 100) + '');
+
+                }
+
+            }
+
+        };
+
+ 
+
+        // bar chart config
+
+        ctrl.buildDurationOptions = {
+
+            plugins: [
+
+                Chartist.plugins.threshold({
+
+                    threshold: $scope.widgetConfig.options.buildDurationThreshold || 10
+
+                }),
+
+                Chartist.plugins.gridBoundaries(),
+
+                Chartist.plugins.tooltip(),
+
+                Chartist.plugins.axisLabels({
+
+                    stretchFactor: 1.4,
+
+                    axisX: {
+
+                        labels: [
+
+                            moment().subtract(14, 'days').format('MMM DD'),
+
+                            moment().subtract(7, 'days').format('MMM DD'),
+
+                            moment().format('MMM DD')
+
+                        ]
+
+                    }
+
+                })
+
+            ],
+
+            stackBars: true,
+
+            centerLabels: true,
+
+            axisY: {
+
+                offset: 30,
+
+                labelInterpolationFnc: function(value) {
+
+                    return value === 0 ? 0 : ((Math.round(value * 100) / 100) + '');
+
+                }
+
+            }
+
+        };
+
+ 
+
+        ctrl.buildDurationEvents = {
+
+            'draw': draw
+
+        };
+
+        //endregion
+
+        /*Dora Added the code Here - Start Region*/
+
+       
+
+        ctrl.selectedObject ="";
+
+        $scope.JsonRead=function(){
+
+           $.getJSON('build_Snapshot.json', function(data) {
+
+            
+
+            /*$scope.FullData=data;*/
+
+            ctrl.jobData = [];
+
+                  
+
+                  _.each(data, function(row) {        
+
+                              
+
+                  ctrl.jobData.push({
+
+                  "towerName" : row.TowerName,
+
+                  "result" : row.Result,
+
+                  "ApplicationName":row.ApplicationName,
+
+                  "JobName":row.JobName,
+
+                  "BuildUrl":row.BuildName,
+                  
+                  "StartTime": parseInt(row.startTime),
+
+                  "EndTime": parseInt(row.startTime)+parseInt(row.Duration),
+                  
+                  "Duration": parseInt(row.Duration),
+                  
+                  "Log": row.Log
+
+                  });                  
+
+                  });   
+
+                  
+
+                  $scope.jobData=ctrl.jobData;
+
+                  /*console.log($scope.jobData); */
+
+                  var today = toMidnight(new Date());
+
+                  var sevenDays = toMidnight(new Date());
+
+                  var fourteenDays = toMidnight(new Date());
+
+                  sevenDays.setDate(sevenDays.getDate() - 7);
+
+                  fourteenDays.setDate(fourteenDays.getDate() - 14);
+
+                
+
+                  $scope.days_14=countfourteenDayscontent(ctrl.jobData);                
+
+                $scope.days_7=countsevencontent(ctrl.jobData);
+
+                $scope.days_1=countTodaycontent(ctrl.jobData);
+
+                  
+
+                function countfourteenDayscontent() {
+
+                      return _.filter(ctrl.jobData, function (build) {
+
+                           return build.EndTime >= fourteenDays.getTime();
+
+                         
+
+                       });
+
+                  }
+
+                
+
+                function countTodaycontent() {
+
+                    return _.filter(ctrl.jobData, function (build) {
+
+                    
+
+                        return build.EndTime >= today.getTime();
+
+                    });
+
+                }
+
+                function countsevencontent() {
+
+                   return _.filter(ctrl.jobData, function (build) {
+
+                         return build.EndTime >= sevenDays.getTime();
+
+                      
+
+                     });
+
+                }
+
+                  function toMidnight(date) {
+
+                      date.setHours(0, 0, 0, 0);
+
+                      return date;
+
+                  }
+
+                  
+
+                  var groups = _.groupBy($scope.days_14, function(job){
+
+                      return job.towerName;
+
+                  });
+
+                  ctrl.jobStatusCount = _.map(groups, function(group){
+
+                      var newvar= {
+
+                          towerName: group[0].towerName,
+
+                          ApplicationName:group[0].ApplicationName,
+
+                          result: group[0].result,                          
+
+                          EndTime: group[0].EndTime,
+
+                          count: _.countBy(group, 'result')
+
+                      };
+
+                      if (!newvar.count.SUCCESS)
+
+                      newvar.count.SUCCESS = 0;                    
+
+                      if (!newvar.count.FAILURE)
+
+                      newvar.count.FAILURE = 0;
+
+                      if (!newvar.count.UNSTABLE)
+
+                          newvar.count.UNSTABLE = 0;                      
+
+                      if (!newvar.count.ABORTED)
+
+                          newvar.count.ABORTED = 0;                      
+
+                      
+
+                      return newvar;
+
+                     
+
+                  });
+
+         
+
+        });
+
+        }
+
+        
+
+        $scope.filterDatafornull = function (item) {
+
+                console.log(item);
+
+            }
+
+       
+
+        $scope.filterData = function (build) {
+
+                return (build.status === "failure" || build.status === "aborted" || build.status === "unstable");
+
+            }
+
+       
+
+        $scope.loadApplication=function(item){
+
+        
+
+            var findvalue=_.filter($scope.days_14, {towerName:item});
+
+            var valAry=[];
+
+            if(!findvalue.length){
+
+            valAry.push(findvalue);
+
+            }
+
+            else
+
+            {
+
+            valAry=findvalue;
+
+            }
+
+            var groups = _.groupBy(valAry, function(job){
+
+                    return job.towerName+"#"+ job.ApplicationName;
+
+                });
+
+            
+
+                $scope.ApplicationCount = _.map(groups, function(group){
+
+                    var newvar= {
+
+                        ApplicationName: group[0].ApplicationName,
+
+                        result: group[0].result,
+
+                        count: _.countBy(group, 'result')                      
+
+                    };                  
+
+                    if (!newvar.count.SUCCESS)
+
+                    newvar.count.SUCCESS = 0;                  
+
+                    if (!newvar.count.FAILURE)
+
+                    newvar.count.FAILURE = 0;
+
+                    if (!newvar.count.UNSTABLE)
+
+                        newvar.count.UNSTABLE = 0;
+
+                    
+
+                    if (!newvar.count.ABORTED)
+
+                        newvar.count.ABORTED = 0;
+
+                    return newvar;
+
+                });
+
+               
+
+              
+
+            };
+
+ 
+
+            //endregion
+
+ 
+
+                
+
+        ctrl.load = function() {
+
+            var deferred = $q.defer();
+
+            var params = {
+
+                componentId: $scope.widgetConfig.componentId,
+
+                numberOfDays: 15
+
+            };
+
+            buildData.details(params).then(function(data) {
+
+             ctrl.tempdataresults=data.result;
+
+                builds = data.result;
+
+                
+
+                processResponse(builds);
+
+                deferred.resolve(data.lastUpdated);
+
+            });
+
+           return deferred.promise;
+
+        };
+
+ 
+
+       
+
+        ctrl.open = function (url) {
+
+            window.open(url);
+
+        };
+
+ 
+
+        ctrl.detail = function(build) {
+
+           
+
+            $uibModal.open({
+
+                templateUrl: 'components/widgets/build/detail.html',
+
+                controller: 'BuildWidgetDetailController',
+
+                controllerAs: 'detail',
+
+                size: 'lg',
+
+                resolve: {
+
+                       
+
+                    build: function() {
+
+                        return _.find(builds, { number: build.number });
+
+                    },
+
+                    buildNumber: function () {
+
+                        return build.number;
+
+                    },
+
+                    collectorNiceName: function () {
+
+                        return build.url;
+
+                    }
+
+                }
+
+            });
+
+        };
+
+ 
+
+        // creates the two-color point design
+
+        // the custom class, 'ct-point-halo' can be used to style the outline
+
+        function draw(data) {
+
+            if (data.type === 'bar') {
+
+                if (data.value.y > 0) {
+
+                    data.group.append(new Chartist.Svg('circle', {
+
+                        cx: data.x2,
+
+                        cy: data.y2,
+
+                        r: 7
+
+                    }, 'ct-slice-pie'));
+
+                    data.y2 -= 7;
+
+                }
+
+            }
+
+ 
+
+            if (data.type === 'point') {
+
+                data.group.append(new Chartist.Svg('circle', {
+
+                    cx: data.x,
+
+                    cy: data.y,
+
+                    r: 3
+
+                }, 'ct-point-halo'), true);
+
+            }
+
+        }
+
+ 
+
+        //region Processing API Response
+
+        function processResponse(data) {
+
+            var worker = {
+
+                    averageBuildDuration: averageBuildDuration,
+
+                    buildsPerDay: buildsPerDay,
+
+                    latestBuilds: latestBuilds,
+
+                    setDisplayToErrorState: setDisplayToErrorState,
+
+                    totalBuilds: totalBuilds
+
+                };
+
+ 
+
+            //region web worker method implementations
+
+            function averageBuildDuration(data, buildThreshold, cb) {
+
+                cb({
+
+                    series: getSeries()
+
+                });
+
+ 
+
+                function getSeries() {
+
+                    var result = getPassFail(simplify(group(filter(data))));
+
+ 
+
+                    return [
+
+                        result.passed,
+
+                        result.failed
+
+                    ];
+
+                }
+
+ 
+
+                // filter to successful builds in the last 15 days
+
+                function filter(data) {
+
+                    return _.filter(data, function (item) {
+
+                        return item.buildStatus == 'Success' && Math.floor(moment(item.endTime).endOf('day').diff(moment(new Date()).endOf('day'), 'days')) >= -15;
+
+                    });
+
+                }
+
+ 
+
+                function group(data) {
+
+                    return _.groupBy(data, function (item) {
+
+                        return moment(item.endTime).format('L');
+
+                    });
+
+                }
+
+ 
+
+                function simplify(data) {
+
+                    // create array with date as the key and build duration times in an array
+
+                    var simplifiedData = {};
+
+                    _.forEach(data, function (buildDay, key) {
+
+                        if (!simplifiedData[key]) {
+
+                            simplifiedData[key] = [];
+
+                        }
+
+ 
+
+                        _.forEach(buildDay, function (build) {
+
+                            var duration = moment(build.endTime).diff(moment(build.startTime), 'seconds') / 60;
+
+                            simplifiedData[key].push(duration);
+
+                        });
+
+                    });
+
+ 
+
+                    return simplifiedData;
+
+                }
+
+ 
+
+                function getPassFail(simplifiedData) {
+
+                    // loop through all days in the past two weeks in case there weren't any builds
+
+                    // on that date
+
+                    var passed = [], failed = [];
+
+                    for (var x = 0; x <= 14; x++) {
+
+                        var date = moment(new Date()).subtract(x, 'days').format('L');
+
+                        var data = simplifiedData[date];
+
+ 
+
+                        // if date has no builds, add 0,0
+
+                        if (!data || !data.length) {
+
+                            passed.push(0);
+
+                            failed.push(0);
+
+                        }
+
+                        else {
+
+                            // calculate average and put in proper
+
+                            var avg = _(data).reduce(function(a,b) {
+
+                                    return a + b;
+
+                                }) / data.length;
+
+ 
+
+                            if (avg > buildThreshold) {
+
+                                passed.push(0);
+
+                                failed.push(avg);
+
+                            }
+
+                            else {
+
+                                passed.push(avg);
+
+                                failed.push(0);
+
+                            }
+
+                        }
+
+                    }
+
+ 
+
+                    return {
+
+                        passed: passed.reverse(),
+
+                        failed: failed.reverse()
+
+                    };
+
+                }
+
+            }
+            
+            
+
+            function buildsPerDay(data, cb) {
+
+                var fifteenDays = toMidnight(new Date());
+
+                fifteenDays.setDate(fifteenDays.getDate() - 14);
+
+            /*    ctrl.LLOO=data[0].log;
+
+       
+
+                var Passarray=[];
+
+                var Failarray=[];
+
+                var passoutput = []; 
+
+                var failoutput = []; 
+
+                
+
+                for (var t=0;t<data.length;t++)
+
+                {
+
+                   var g=data[t].log;
+
+                   ctrl.rrr=data[t].log;
+
+                  // ctrl.jj=g.split("<table ")[3].split("<tr>")[2].split("<td ")[3].split(">")[1].slice(0,-4);
+
+                   passoutput[t]=g.split("<table ")[3].split("<tr>")[2].split("<td ")[7].split(">")[1].slice(0,-4);
+
+                   failoutput[t]=g.split("<table ")[3].split("<tr>")[2].split("<td ")[3].split(">")[1].slice(0,-4);
+
+                   Passarray.push(passoutput[t]);
+
+                   Failarray.push(failoutput[t]);
+
+                   //Passarray.push(output[0]);
+
+                }
+
+             
+
+*/
+
+                cb({
+
+                    passed: countBuilds(all(data)),
+
+                    failed: countBuilds(failed(data)),
+
+                    
+
+  //                  PassedTest:Passarray,
+
+    //                FailedTest:Failarray
+
+                });
+
+ 
+
+                function all(data) {
+
+                    return _.filter(data, function (build) {
+
+                        return build.endTime >= fifteenDays.getTime() && (build.buildStatus !== 'InProgress');
+
+                    });
+
+                }
+
+ 
+
+                function failed(data) {
+
+                    return _.filter(data, function (build) {
+
+                        return build.endTime >= fifteenDays.getTime() && (build.buildStatus !== 'Success') && (build.buildStatus !== 'InProgress');
+
+                    });
+
+                }
+
+ 
+
+                function countBuilds(data) {
+
+                    var counts = [];
+
+                    var dt = new Date(fifteenDays.getTime());
+
+                    var grouped = _.groupBy(data, function (build) {
+
+                        return toMidnight(new Date(build.endTime)).getTime();
+
+                    });
+
+ 
+
+                    _.times(15, function () {
+
+                        var count = grouped[dt.getTime()] ? grouped[dt.getTime()].length : 0;
+
+                        counts.push(count);
+
+                        dt.setDate(dt.getDate() + 1);
+
+                    });
+
+ 
+
+                    return counts;
+
+                }
+
+ 
+
+ 
+
+                function toMidnight(date) {
+
+                    date.setHours(0, 0, 0, 0);
+
+                    return date;
+
+                }
+
+            }
+
+            
+
+            function latestBuilds(data, cb) {
+
+                       
+
+            }
+
+ 
+
+           
+
+ 
+
+            function setDisplayToErrorState(data, failureThreshold, cb) {
+
+                data = _.sortBy(data, 'endTime').reverse().slice(0, failureThreshold);
+
+                data = _.filter(data, function (item) {
+
+                    return (item.buildStatus.toLowerCase() != 'success') &&  (item.buildStatus.toLowerCase() != 'inprogress') ;
+
+                });
+
+                cb(data && data.length >= failureThreshold);
+
+            }
+
+            
+
+         
+
+            
+
+/*Dora Changing the code here*/
+
+            
+
+            $scope.ApplicationDataClick=function(data){
+
+                                    ctrl.ClickedApplicationName=data;
+
+                                     var findvalue14_Application=_.filter($scope.days_14_application, {ApplicationName:data});
+
+                     var findvalue7_Application=_.filter( $scope.days_7_application, {ApplicationName:data});
+
+                     var findvalue1_Application=_.filter($scope.days_1_application, {ApplicationName:data});
+
+                     
+
+                     var valAry=[];
+
+                     if(!findvalue14_Application.length){
+
+                     valAry.push(findvalue14_Application);
+
+                     }
+
+                     else
+
+                     {
+
+                     valAry=findvalue14_Application;
+
+                     }
+
+                     var groups = _.groupBy(valAry, function(job){
+
+                             return job.towerName+"#"+ job.ApplicationName+"#"+ job.JobName;
+
+                         });
+
+                     
+
+                         $scope.JobsCount = _.map(groups, function(group){
+
+                             var newvar= {
+
+                                 JobName: group[0].JobName,
+
+                                 result: group[0].result,
+
+                                 count: _.countBy(group, 'result')                      
+
+                             };                  
+
+                             if (!newvar.count.SUCCESS)
+
+                             newvar.count.SUCCESS = 0;                  
+
+                             if (!newvar.count.FAILURE)
+
+                             newvar.count.FAILURE = 0;
+
+                             if (!newvar.count.UNSTABLE)
+
+                                 newvar.count.UNSTABLE = 0;
+
+                             
+
+                             if (!newvar.count.ABORTED)
+
+                                 newvar.count.ABORTED = 0;
+
+                             return newvar;
+
+                         });          
+
+                                   
+
+            }
+            
+            $scope.testavgmy14= function (data) {
+            	
+            	var avgfort=[];
+            	
+            	avgfort= getSeries();
+        ctrl.buildDurationData=avgfort[1];
+                function getSeries() {
+
+                    var result = getPassFail(simplify(group(filter(data))));
+
+                    return [
+
+                        result.passed,
+
+                       result.failed
+
+                    ];
+
+                }
+
+               
+              
+                // filter to successful builds in the last 15 days
+
+                function filter(data) {
+
+                    return _.filter(data, function (item) {
+
+                        return item.result == 'SUCCESS' || item.result == 'FAILURE' || item.result == 'UNSTABLE' || item.result == 'ABORTED' && Math.floor(moment(item.EndTime).endOf('day').diff(moment(new Date()).endOf('day'), 'days')) >= -15;
+
+                    });
+
+                }
+
+               
+
+                function group(data) {
+
+                    return _.groupBy(data, function (item) {
+
+                        return moment(item.EndTime).format('L');
+
+                    });
+
+                }
+
+                function simplify(data) {
+
+                    // create array with date as the key and build duration times in an array
+
+                    var simplifiedData = {};
+
+                    _.forEach(data, function (buildDay, key) {
+
+                        if (!simplifiedData[key]) {
+
+                            simplifiedData[key] = [];
+
+                        }
+
+                        _.forEach(buildDay, function (build) {
+
+                            var duration = moment(build.EndTime).diff(moment(build.StartTime), 'seconds') / 60;
+
+                            simplifiedData[key].push(duration);
+
+                        });
+
+                    });
+
+ 
+
+                    return simplifiedData;
+
+                }
+
+ 
+
+                function getPassFail(simplifiedData) {
+
+                    // loop through all days in the past two weeks in case there weren't any builds
+
+                    // on that date
+
+                    var passed = [], failed = [];
+
+                    for (var x = 0; x <= 14; x++) {
+
+                        var date = moment(new Date()).subtract(x, 'days').format('L');
+
+                        var data = simplifiedData[date];
+
+ 
+
+                        // if date has no builds, add 0,0
+
+                        if (!data || !data.length) {
+
+                            passed.push(0);
+
+                            failed.push(0);
+
+                        }
+
+                        else {
+
+                            // calculate average and put in proper
+
+                            var avg = _(data).reduce(function(a,b) {
+
+                                    return a + b;
+
+                                }) / data.length;
+
+ 
+
+                        //    if (avg > $scope.widgetConfig.options.buildDurationThreshold) {
+
+                                passed.push(avg);
+
+                                failed.push(avg);
+
+                           // }
+
+                          /*  else {
+
+                                passed.push(avg);
+
+                                failed.push(0);
+
+                            }*/
+
+                        }
+
+                    }
+
+ 
+
+                    return {
+
+                        passed: passed.reverse(),
+
+                        failed: failed.reverse()
+
+                    };
+
+                }
+                
+                //code to update graphs
+                
+             /*  var labels = [];
+
+                _(ctrl.getmyavgfort[1]).forEach(function() {
+
+                    labels.push('');
+
+                });
+              
+                ctrl.getmyavgfort.labels = labels;
+
+                //_(buildDurationData.series).forEach
+
+              //  ctrl.buildDurationData = ctrl.getmyavgfort[1];*/
+            }
+
+            $scope.testbuildmy14= function (data) {
+            var fifteenDays = toMidnight(new Date());
+            fifteenDays.setDate(fifteenDays.getDate() - 14);
+            var Passarray=[];
+            var Failarray=[];
+            var passoutput = []; 
+            var failoutput = []; 
+            ctrl.rrr=data.length;
+           
+            for (var t=0;t<data.length;t++)
+            {
+            	var g = data[t].Log;
+            	if(g ==="")
+            		{
+            		 Passarray.push("0");
+            		 Failarray.push("0");
+            		}
+            	else{
+	            	passoutput[t]=g.split(",")[0];
+	                failoutput[t]=g.split(",")[1];
+	            	 Passarray.push(passoutput[t]);
+	            	 Failarray.push(failoutput[t]);
+            	}    
+            }
+$scope.passedarr=Passarray;
+$scope.failedarr=Failarray;
+      
+               $scope.passedmyfort= countBuilds(all(data));
+
+                $scope.failedmyfort= countBuilds(failed(data));
+
+            function all(data) {
+
+                return _.filter(data, function (build) {
+
+                    return build.EndTime >= fifteenDays.getTime() && (build.result !== 'INPROGRESS') && (build.result !== 'FAILED') && (build.result !== 'ABORTED') && (build.result !== 'UNSTABLE');
+
+                });
+
+            }
+            function toMidnight(date) {
+
+                date.setHours(0, 0, 0, 0);
+
+                return date;
+
+            }
+
+            function failed(data) {
+
+                return _.filter(data, function (build) {
+
+                    return build.EndTime >= fifteenDays.getTime() && (build.result !== 'SUCCESS') && (build.buildStatus !== 'INPROGRESS');
+
+                });
+
+            }
+            function countBuilds(data) {
+            	ctrl.countbuildata = data.length;
+                var counts = [];
+
+                var dt = new Date(fifteenDays.getTime());
+
+                var grouped = _.groupBy(data, function (build) {
+
+                    return toMidnight(new Date(build.EndTime)).getTime();
+
+                });
+                _.times(15, function () {
+
+                    var count = grouped[dt.getTime()] ? grouped[dt.getTime()].length : 0;
+
+                    counts.push(count);
+
+                    dt.setDate(dt.getDate() + 1);
+
+                });
+                return counts;
+            }
+            
+            var labels = [];
+
+          /*  _(data.passed).forEach(function() {
+
+                labels.push(1);
+
+            });*/
+
+
+            ctrl.lineData = {
+
+                labels: labels,
+
+                series: [{
+
+                    name: 'success',
+
+                    data: $scope.passedmyfort
+
+                }, {
+
+                    name: 'failures',
+
+                    data:  $scope.failedmyfort
+
+                }]
+
+            };
+
+            ctrl.lineDatacvs  = {
+
+                    labels: labels,
+
+                    series: [{
+
+                        name: 'success',
+
+                        data: $scope.passedarr
+
+                    }, {
+
+                        name: 'failures',
+
+                        data:  $scope.failedarr
+
+                    }]
+
+                };
+            }        
+ $scope.latestBuildsNew= function (data) {
+                // order by end time and limit to last 5
+
+                data = _.sortBy(data, 'number');
+
+                /*.slice(0, 5)*/
+
+                
+
+                // loop and convert time to readable format
+
+                data = _.map(data, function (item) {
+
+                       
+
+                    return {
+
+                        status : item.result.toLowerCase(),
+
+                        number: item.BuildUrl.split("/")[9],
+
+                        endTime: item.EndTime,
+
+                        url: item.BuildUrl
+
+                        
+
+                    };
+
+                });
+
+ 
+
+               ctrl.LatestNewBuildsData=data;
+
+            }
+
+ 
+
+
+            $scope.testTotalBuilds= function(item){  
+
+                        ctrl.sitemaptowername=item;
+
+               var findvalue14=_.filter($scope.days_14, {towerName:item});
+
+               var findvalue7=_.filter( $scope.days_7, {towerName:item});
+
+               var findvalue1=_.filter($scope.days_1, {towerName:item});
+
+               $scope.latestBuildsNew(findvalue14);
+
+               $scope.days_14_application=findvalue14;
+
+               $scope.days_7_application=findvalue7;
+
+               $scope.days_1_application=findvalue1;          
+
+               //koushik added here
+               $scope.testbuildmy14(findvalue14);
+               
+               $scope.testavgmy14(findvalue14);
+
+                  ctrl.onedaybuildcount=findvalue1.length;
+
+                  ctrl.sevendaybuildcount=findvalue7.length;
+
+                  ctrl.fouteendaybuildcount=findvalue14.length;
+
+              ctrl.daysPercentagefrt= calcupass(findvalue14);
+
+              ctrl.daysPercentagesev= calcupass(findvalue7);
+
+              ctrl.daysPercentageone=calcupass(findvalue1);
+
+             
+
+              $scope.loadApplication(item);
+
+                 function calcupass(data) {
+
+                  
+
+                     var myarray = [];
+
+                     var resultpass = 0;
+
+                     var resultfail = 0;
+
+                     for (var i = 0; i <= data.length - 1; i++) {
+
+                         if (data[i].result == "SUCCESS") {                          
+
+                          resultpass += 1;
+
+                             }
+
+ 
+
+                         if (data[i].result == "ABORTED" || data[i].result == "FAILURE") {
+
+                             resultfail += 1;
+
+                         }
+
+                     }
+
+                     var newval = 0;
+
+                     var newvalfailed = 0;
+
+                     
+
+                     if(data.length>0)
+
+                         {
+
+                     newval = (resultpass / (data.length)) * 100;
+
+                     newvalfailed = (resultfail / (data.length)) * 100;
+
+                         }
+
+                     else
+
+                         {
+
+                         newval=0;
+
+                         newvalfailed = 0;
+
+                         }
+
+                     myarray.push(newval);
+
+                     myarray.push(newvalfailed);                     
+
+                     return myarray
+
+                 }
+
+                
+
+                 
+
+             }       
+
+     
+
+            function totalBuilds(data, cb) {
+
+             ctrl.testtotal=data.length;
+
+                var today = toMidnight(new Date());
+
+                var sevenDays = toMidnight(new Date());
+
+                var fourteenDays = toMidnight(new Date());
+
+                sevenDays.setDate(sevenDays.getDate() - 7);
+
+                fourteenDays.setDate(fourteenDays.getDate() - 14);
+
+              
+
+                ctrl.kkk=calcupass(countTodaycontent());
+
+                ctrl.jjj=calcupass(countsevencontent());
+
+              
+
+                ctrl.hhh=calcupass(countfourteenDayscontent());
+
+                cb({
+
+                    today: countToday(),
+
+                    sevenDays: countSevenDays(),
+
+                    fourteenDays: countFourteenDays()
+
+                });
+
+               
+
+                function calcupass(data){
+
+                  var myarray=[];
+
+                   var result = 0;
+
+                   var resultfail = 0;
+
+                  
+
+                  
+
+                     for (var i = 0; i <= data.length-1; i++){
+
+                         if(data[i].buildStatus=="Success")
+
+                               {
+
+                         result += 1;
+
+                               }
+
+                         if(data[i].buildStatus=="Aborted" || data[i].buildStatus=="Failure")
+
+                         {
+
+                               resultfail += 1;
+
+                         }
+
+                              
+
+                     }
+
+                     var  newval=0;
+
+                     var  newvalfailed=0;
+
+                  
+
+                         newval=(result/(data.length))*100;
+
+                         newvalfailed=(resultfail/(data.length))*100;
+
+                  
+
+                    
+
+                     myarray.push(newval);
+
+                     myarray.push(newvalfailed);
+
+                     return myarray     
+
+                }
+
+              
+
+                /*Dora  Changing the code end here*/
+
+                function countTodaycontent() {
+
+                    return _.filter(data, function (build) {
+
+                     ctrl.filtertodaydata=data;
+
+                        return build.endTime >= today.getTime();
+
+                    });
+
+                }
+
+                function countsevencontent() {
+
+                   return _.filter(data, function (build) {
+
+                         return build.endTime >= sevenDays.getTime();
+
+                      
+
+                     });
+
+                }
+
+                function countfourteenDayscontent() {
+
+                   return _.filter(data, function (build) {
+
+                        return build.endTime >= fourteenDays.getTime();
+
+                      
+
+                    });
+
+               }
+
+                function countToday() {
+
+                    return _.filter(data, function (build) {
+
+                        return build.endTime >= today.getTime();
+
+                    }).length;
+
+                }
+
+ 
+
+                function countSevenDays() {
+
+                    return _.filter(data, function (build) {
+
+                        return build.endTime >= sevenDays.getTime();
+
+                    }).length;
+
+                }
+
+ 
+
+                function countFourteenDays() {
+
+                    return _.filter(data, function (build) {
+
+                        return build.endTime >= fourteenDays.getTime();
+
+                    }).length;
+
+                }
+
+ 
+
+                function toMidnight(date) {
+
+                    date.setHours(0, 0, 0, 0);
+
+                    return date;
+
+                }
+
+            }
+
+            //endregion
+
+           
+
+            //region web worker calls
+
+            // call to webworker methods nad set the controller variables with the processed values
+
+            worker.buildsPerDay(data, function (data) {
+
+                //$scope.$apply(function () {
+
+ 
+
+                var labels = [];
+
+                _(data.passed).forEach(function() {
+
+                    labels.push(1);
+
+                });
+
+ 
+
+                ctrl.lineData = {
+
+                    labels: labels,
+
+                    series: [{
+
+                        name: 'success',
+
+                        data: data.passed
+
+                    }, {
+
+                        name: 'failures',
+
+                        data: data.failed
+
+                    }]
+
+                };
+
+              
+
+                ctrl.lineDatacvs = {
+
+                        labels: labels,
+
+                        series: [{
+
+                            name: 'success',
+
+                           // data: data.PassedTest
+
+                            data: data.passed
+
+                        }, {
+
+                            name: 'failures',
+
+                          //  data: data.FailedTest
+
+                            data: ["3","2","4","5"]
+
+                        }]
+
+                    };
+
+                //});
+
+            });
+
+ 
+
+            worker.latestBuilds(data, function (buildsToDisplay) {
+
+                //$scope.$apply(function () {
+
+                    ctrl.recentBuilds = buildsToDisplay;
+
+                //});
+
+            });
+
+ 
+
+            worker.averageBuildDuration(data, $scope.widgetConfig.options.buildDurationThreshold, function (buildDurationData) {
+
+                //$scope.$apply(function () {
+
+                var labels = [];
+
+                _(buildDurationData.series[0]).forEach(function() {
+
+                    labels.push('');
+
+                });
+
+                buildDurationData.labels = labels;
+
+                //_(buildDurationData.series).forEach
+
+                ctrl.buildDurationData = buildDurationData;
+
+                //});
+
+            });
+
+ 
+
+            worker.setDisplayToErrorState(data, $scope.widgetConfig.options.consecutiveFailureThreshold, function (displayAsErrorState) {
+
+                //$scope.$apply(function () {
+
+                    $scope.display = displayAsErrorState ? DisplayState.ERROR : DisplayState.DEFAULT;
+
+                //});
+
+            });
+
+ 
+
+            worker.totalBuilds(data, function (data) {
+
+                //$scope.$apply(function () {
+
+                  ctrl.ggg=data;
+
+                    ctrl.totalBuildsYesterday = data.today;
+
+                    ctrl.totalBuildsLastWeek = data.sevenDays;
+
+                    ctrl.totalBuildsLastMonth = data.fourteenDays;
+
+                //});
+
+            });
+
+            //endregion
+
+        }
+
+        //endregion
+
+    }
+
+})();
